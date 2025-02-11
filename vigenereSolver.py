@@ -1,7 +1,9 @@
 import sys
 import pickle
+import time
 from math import log
 from itertools import product
+from random import randrange
 
 # Define the Swedish alphabet including å, ä, and ö
 ALPHABET = "abcdefghijklmnopqrstuvwxyzåäö"
@@ -26,11 +28,13 @@ def clean_text(text):
 
 def decrypt(ciphertext,key):
  plaintext = ''
+
  for i in range(len(ciphertext)):
      p = ALPHABET.index(ciphertext[i])
      k = ALPHABET.index(key[i%len(key)])
      c = (p - k) % 29
      plaintext += ALPHABET[c]
+
  return plaintext
 
 # Find the fitness of a text by comparing tetrafrequency of known swedish text
@@ -63,30 +67,38 @@ def fitness(text):
 # Find the index of coincidence for letters in a text 
 def index_of_coincidence(text):
     counts = [0]*29
+
     for char in text: # Count the amount of times a letter appears in text
         counts[ALPHABET.index(char)] += 1
     freq = 0 # Frequency of a certain letter
     total = 0 # Total number of letters
+
     for i in range(29):
         freq += counts[i]*(counts[i]-1)
         total += counts[i]
+
     return 29*freq / (total*(total-1)) # Normalize by factor 29, this makes random text have an ioc of about 1
 
 # Find the length of the key using the ioc formula
 def find_key_length(text):
     found = False
     period = 0
+
     while not found:
         period += 1
         slices = ['']*period
+
         for i in range(len(text)):
             slices[i%period] += text[i]
         sum = 0
+
         for i in range(period):
             sum += index_of_coincidence(slices[i])
         ioc = sum / period
+
         if ioc > 1.6: # The ioc for a swedish text was tested to be around 1.7
             found = True
+
     return period
 
 # Brute force crack a given ciphertext with a known key length by comparing texts decrypted with a certain key to the ioc
@@ -104,10 +116,30 @@ def brute_force(ciphertext, length):
             best_fitness = score
             best_key = key
         
-        if score > -20:  # Threshold for determining valid Swedish text
+        if score > -50:  # Threshold for determining valid Swedish text
             break
     
     return best_key, decrypt(ciphertext, best_key) if best_key else None
+
+# Randomly varies the key and updates it with the best found fitness until an acceptable fitness is found
+def variational_key(ciphertext, length):
+    key = ['a']*length # A starting key with all positions set to a
+    best_fitness = -9999 # Start at a large negative number
+
+    while best_fitness < -300: # Threshold for determining valid swedish text
+        k = key[:]
+        random_index = randrange(length)
+
+        for i in range(29): # select random index and run through the alphabet to find the best fitness
+            k[random_index] = ALPHABET[i] 
+            decrypted_text = decrypt(ciphertext, k)
+            current_fitness = fitness(decrypted_text)
+
+            if (current_fitness > best_fitness):
+                key = k[:]
+                best_fitness = current_fitness
+
+    return "".join(key), decrypt(ciphertext, key)
 
 
 
@@ -122,14 +154,25 @@ def main():
     file_path = input_file
     with open(file_path, 'r', encoding='utf-8') as file:
             text = file.read()
+    
+    # START TIMING #
+    start_time = time.time()
 
     key_length = find_key_length(text)
-    print(key_length)
-    key, decrypted_text = brute_force(text, key_length)
+    print("key length is:", key_length)
+    if (key_length > 4):
+        key, decrypted_text = variational_key(text, key_length)
+    else:
+        key, decrypted_text = brute_force(text, key_length)
+
+    end_time = time.time()  # Record end time
+    elapsed_time = end_time - start_time  # Compute elapsed time
+    # STOP TIMING #
 
     print("The key is:", key)
     print("Decrypted text:")
     print(decrypted_text)
+    print("Time to crack:", elapsed_time)
    
 
 if __name__ == "__main__":
