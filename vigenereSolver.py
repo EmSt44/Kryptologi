@@ -122,11 +122,11 @@ def brute_force(ciphertext, length):
     return best_key, decrypt(ciphertext, best_key) if best_key else None
 
 # Randomly varies the key and updates it with the best found fitness until an acceptable fitness is found
-def variational_key(ciphertext, length):
+def variational_key(ciphertext, length, fitness_threshold):
     key = ['a']*length # A starting key with all positions set to a
     best_fitness = -9999 # Start at a large negative number
 
-    while best_fitness < -300: # Threshold for determining valid swedish text
+    while best_fitness < fitness_threshold: # Threshold for determining valid swedish text
         k = key[:]
         random_index = randrange(length)
 
@@ -156,12 +156,12 @@ def main():
             text = file.read()
     
     # START TIMING #
-    start_time = time.time()
+    start_time = time.time() # For recording time to solve
 
     key_length = find_key_length(text)
     print("key length is:", key_length)
     if (key_length > 4):
-        key, decrypted_text = variational_key(text, key_length)
+        key, decrypted_text = variational_key(text, key_length, -100)
     else:
         key, decrypted_text = brute_force(text, key_length)
 
